@@ -35,6 +35,7 @@ This project implements a **GitOps** workflow. Infrastructure changes are deploy
    Commit and push your changes to the `main` branch to trigger the pipeline:
    
    ```bash
+   terraform fmt
    git add .
    git commit -m "Update infrastructure config"
    git push origin main
