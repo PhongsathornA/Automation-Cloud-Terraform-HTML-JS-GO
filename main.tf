@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket ของคุณตรงนี้!
+    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ อย่าลืมแก้ชื่อ Bucket เป็นของคุณ!
     key    = "terraform.tfstate"
     region = "ap-southeast-1"
   }
@@ -21,20 +21,18 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# --- Subnet (Dynamic CIDR) ---
 resource "aws_subnet" "user_selected_subnet" {
   vpc_id            = data.aws_vpc.default.id
-  cidr_block        = "172.31.250.0/24" # <--- ค่านี้จะเปลี่ยนตามที่ User เลือก (Auto/Manual)
+  cidr_block        = "172.31.250.0/24"
   availability_zone = "ap-southeast-1a"
-
+  
   tags = {
-    Name = "Subnet-For-R3-Test"
+    Name = "Subnet-For-Output-Test"
   }
 }
 
-# --- Security Group (Dynamic Name) ---
 resource "aws_security_group" "user_custom_sg" {
-  name        = "Test-Group_SG" # <--- ชื่อ SG ตามที่ User กรอก
+  name        = "Output-test"
   description = "Security Group managed by Terraform Web Portal"
   vpc_id      = data.aws_vpc.default.id
 
@@ -62,20 +60,32 @@ resource "aws_security_group" "user_custom_sg" {
   }
 
   tags = {
-    Name = "Test-Group_SG" # แปะป้ายชื่อให้ตรงกันด้วย
+    Name = "Output-test"
   }
 }
 
 resource "aws_instance" "web_server" {
   ami           = "ami-0b3eb051c6c7936e9"
   instance_type = "t3.micro"
-
-  subnet_id                   = aws_subnet.user_selected_subnet.id
-  vpc_security_group_ids      = [aws_security_group.user_custom_sg.id]
+  
+  subnet_id              = aws_subnet.user_selected_subnet.id
+  vpc_security_group_ids = [aws_security_group.user_custom_sg.id]
   associate_public_ip_address = true
 
   tags = {
-    Name    = "R3-Test"
+    Name    = "Output-Test"
     Project = "Cloud-Automation-Web-Generated"
   }
+}
+
+# 👇👇👇 ส่วนที่เพิ่มเข้ามา (Outputs) 👇👇👇
+
+output "server_public_ip" {
+  description = "IP Address ของ Server ที่สร้างเสร็จ"
+  value       = aws_instance.web_server.public_ip
+}
+
+output "website_url" {
+  description = "ลิงก์สำหรับเข้าเว็บ (ถ้าลง Web Server แล้ว)"
+  value       = "http://${aws_instance.web_server.public_ip}"
 }
