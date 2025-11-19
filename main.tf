@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ อย่าลืมแก้ชื่อ Bucket เป็นของคุณ!
+    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ อย่าลืมแก้ชื่อ Bucket เป็นของคุณ!
     key    = "terraform.tfstate"
     region = "ap-southeast-1"
   }
@@ -25,7 +25,7 @@ resource "aws_subnet" "user_selected_subnet" {
   vpc_id            = data.aws_vpc.default.id
   cidr_block        = "172.31.250.0/24"
   availability_zone = "ap-southeast-1a"
-  
+
   tags = {
     Name = "Subnet-For-Output-Test"
   }
@@ -67,9 +67,9 @@ resource "aws_security_group" "user_custom_sg" {
 resource "aws_instance" "web_server" {
   ami           = "ami-0b3eb051c6c7936e9"
   instance_type = "t3.micro"
-  
-  subnet_id              = aws_subnet.user_selected_subnet.id
-  vpc_security_group_ids = [aws_security_group.user_custom_sg.id]
+
+  subnet_id                   = aws_subnet.user_selected_subnet.id
+  vpc_security_group_ids      = [aws_security_group.user_custom_sg.id]
   associate_public_ip_address = true
 
   tags = {
