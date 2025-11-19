@@ -8,7 +8,7 @@ terraform {
 
   # --- 👇 ส่วนที่เพิ่มมา (ต้องแก้ชื่อ Bucket นะครับ!) 👇 ---
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ แก้ตรงนี้ให้เป็นชื่อ Bucket จริงๆ ของคุณ
+    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ตรงนี้ให้เป็นชื่อ Bucket จริงๆ ของคุณ
     key    = "terraform.tfstate"
     region = "ap-southeast-1"
   }
@@ -22,11 +22,11 @@ provider "aws" {
 
 # 2. สร้าง EC2 Instance (Server)
 resource "aws_instance" "app_server" {
-  ami           = "ami-060e277c0d4cce553" # Ubuntu 20.04 ใน Singapore (Free Tier)
-  instance_type = "t2.micro"              # รุ่นประหยัด (Free Tier ใช้ได้)
+  ami           = "ami-0b3eb051c6c7936e9" # Ubuntu 20.04 ใน Singapore (Free Tier)
+  instance_type = "t3.micro"              # รุ่นประหยัด (Free Tier ใช้ได้)
 
   tags = {
-    Name = "My-Automated-Server"
+    Name    = "My-Automated-Server"
     Project = "Cloud-Automation-Project"
   }
 }
