@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ แก้ชื่อ Bucket ให้ตรงกับของคุณ!
+    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket ให้ตรงกับของคุณ!
     key    = "terraform.tfstate"
     region = "ap-southeast-1"
   }
