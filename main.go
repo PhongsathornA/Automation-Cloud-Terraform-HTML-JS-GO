@@ -135,19 +135,35 @@ resource "aws_instance" "web_server" {
   vpc_security_group_ids = [aws_security_group.user_custom_sg.id]
   associate_public_ip_address = true
 
-  # 👇👇👇 ปรับแก้ Script สำหรับ Amazon Linux 👇👇👇
+  # 👇👇👇 เอา Emoji ออกหมดแล้วครับ (Clean Text) 👇👇👇
   {{if .InstallNginx}}
   user_data = <<-EOF
               #!/bin/bash
-              # ใช้ dnf แทน apt-get (เพราะเป็น Amazon Linux)
               dnf update -y
               dnf install -y nginx
-              
               systemctl start nginx
               systemctl enable nginx
               
-              # Amazon Linux เก็บหน้าเว็บไว้ที่ /usr/share/nginx/html
-              echo "<h1>☁️ Hello from Amazon Linux!</h1><p>Server: {{.ServerName}}</p>" > /usr/share/nginx/html/index.html
+              # สร้างไฟล์ HTML แบบ Plain Text ไม่มี Emoji
+              cat <<HTML > /usr/share/nginx/html/index.html
+              <!DOCTYPE html>
+              <html>
+              <head>
+                  <title>Welcome to {{.ServerName}}</title>
+                  <style>
+                      body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+                      .card { border: 1px solid #ccc; padding: 20px; display: inline-block; border-radius: 10px; }
+                  </style>
+              </head>
+              <body>
+                  <div class="card">
+                      <h1>Hello from Amazon Linux!</h1>
+                      <p>Server Name: <strong>{{.ServerName}}</strong></p>
+                      <p>Deployed via Terraform Automation</p>
+                  </div>
+              </body>
+              </html>
+              HTML
               EOF
   
   user_data_replace_on_change = true
@@ -190,21 +206,21 @@ output "website_url" {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `
 		<div style="font-family: sans-serif; text-align: center; padding: 40px;">
-			<h1 style="color: green;">✅ สร้างไฟล์สำเร็จ! (Amazon Linux Version)</h1>
-			<p>สถานะการติดตั้ง Nginx: <strong>%t</strong></p>
+			<h1 style="color: green;">✅ Update Success! (No Emojis)</h1>
+			<p>Clean text version generated.</p>
 			
 			<div style="background: #f8f9fa; padding: 20px; border: 1px solid #ddd; display: inline-block; text-align: left; border-radius: 8px;">
 				<code>
 				terraform fmt<br>
 				git add .<br>
-				git commit -m "Update user_data for Amazon Linux"<br>
+				git commit -m "Remove emojis from user_data"<br>
 				git push
 				</code>
 			</div>
 			<br><br>
-			<a href="/">⬅️ กลับหน้าแรก</a>
+			<a href="/">⬅️ Back to Home</a>
 		</div>
-	`, isInstall)
+	`)
 	
-	fmt.Printf("Generated for Amazon Linux: %s\n", data.ServerName)
+	fmt.Printf("Generated clean text for: %s\n", data.ServerName)
 }
