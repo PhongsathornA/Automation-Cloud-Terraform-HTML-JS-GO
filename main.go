@@ -8,7 +8,6 @@ import (
 	"text/template"
 )
 
-// โครงสร้างข้อมูลที่จะรับมาจากหน้าเว็บ
 type FormData struct {
 	ServerName   string
 	InstanceType string
@@ -16,12 +15,10 @@ type FormData struct {
 }
 
 func main() {
-	// หน้าแรกแสดงไฟล์ HTML
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	})
 
-	// เวลากดปุ่มจะวิ่งมาที่นี่
 	http.HandleFunc("/generate", handleGenerate)
 
 	fmt.Println("Server started at http://localhost:8080")
@@ -35,15 +32,12 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. รับค่าจาก Form
 	data := FormData{
 		ServerName:   r.FormValue("serverName"),
 		InstanceType: r.FormValue("instanceType"),
 		Region:       r.FormValue("region"),
 	}
 
-	// 2. นี่คือ "แม่พิมพ์" (Template) ของ Terraform
-	// เราจะเว้นว่าง credentials ไว้ เพราะ GitHub Actions จะจัดการให้
 	const tfTemplate = `terraform {
   required_providers {
     aws = {
@@ -53,7 +47,7 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
   }
 
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ แก้ชื่อ Bucket ให้ตรงกับของคุณ!
+    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ เช็กชื่อ Bucket ตรงนี้ให้ถูกต้อง!
     key    = "terraform.tfstate"
     region = "{{.Region}}"
   }
@@ -61,28 +55,72 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 
 provider "aws" {
   region = "{{.Region}}"
-  # ไม่ต้องใส่ access_key ตรงนี้ (GitHub Actions จะจัดการให้)
+}
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+resource "aws_subnet" "my_custom_subnet" {
+  vpc_id            = data.aws_vpc.default.id
+  cidr_block        = "172.31.200.0/24"
+  availability_zone = "{{.Region}}a"
+  
+  tags = {
+    Name = "My-Custom-Subnet-By-Go"
+  }
+}
+
+resource "aws_security_group" "allow_web_ssh" {
+  name        = "allow_web_ssh_by_go"
+  description = "Allow Web (80) and SSH (22)"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_instance" "web_server" {
-  ami           = "ami-0b3eb051c6c7936e9" # Ubuntu 20.04 (Singapore)
+  ami           = "ami-0b3eb051c6c7936e9"
   instance_type = "{{.InstanceType}}"
+  
+  subnet_id              = aws_subnet.my_custom_subnet.id
+  vpc_security_group_ids = [aws_security_group.allow_web_ssh.id]
+  associate_public_ip_address = true
 
   tags = {
     Name    = "{{.ServerName}}"
-    Project = "Cloud-Automation-Web-Generated"
+    Project = "Cloud-Automation-Full-Stack"
   }
 }
 `
 
-	// 3. แปลง Template
 	tmpl, err := template.New("terraform").Parse(tfTemplate)
 	if err != nil {
 		http.Error(w, "Error parsing template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 4. สร้างไฟล์ main.tf (ทับของเดิม)
 	file, err := os.Create("main.tf")
 	if err != nil {
 		http.Error(w, "Error creating file: "+err.Error(), http.StatusInternalServerError)
@@ -90,32 +128,36 @@ resource "aws_instance" "web_server" {
 	}
 	defer file.Close()
 
-	// 5. เขียนข้อมูลลงไฟล์
 	err = tmpl.Execute(file, data)
 	if err != nil {
 		http.Error(w, "Error saving file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 6. ส่งหน้าเว็บตอบกลับ
+	// 👇 ปรับแก้ HTML ตรงนี้ครับ ใส่คำเตือนและคำสั่งให้ครบชุด
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `
-		<div style="font-family: sans-serif; text-align: center; padding: 50px;">
-			<h1 style="color: green;">✅ สร้างไฟล์สำเร็จ! (Generated Success)</h1>
-			<p>ตอนนี้ไฟล์ <strong>main.tf</strong> ในเครื่องคุณเปลี่ยนไปแล้ว</p>
-			<p>ขั้นตอนต่อไป:</p>
-			<ul style="display: inline-block; text-align: left;">
-				<li>1. กลับไปที่ VS Code</li>
-				<li>2. เปิด Terminal</li>
-				<li>3. พิมพ์คำสั่ง: <code>terraform fmt</code></li>
-				<li>3. พิมพ์คำสั่ง: <code>git add .</code></li>
-				<li>4. พิมพ์คำสั่ง: <code>git commit -m "Update from web"</code></li>
-				<li>5. พิมพ์คำสั่ง: <code>git push</code></li>
-			</ul>
+		<div style="font-family: sans-serif; text-align: center; padding: 40px; max-width: 600px; margin: auto;">
+			<h1 style="color: #28a745;">✅ สร้างไฟล์สำเร็จ!</h1>
+			
+			<div style="background: #fff3cd; color: #856404; padding: 15px; border: 1px solid #ffeeba; border-radius: 5px; margin-bottom: 20px; text-align: left;">
+				<strong>⚠️ สำคัญมาก:</strong> เพื่อป้องกัน GitHub Actions แจ้ง Error <br>
+				กรุณารันคำสั่ง <code>terraform fmt</code> ทุกครั้งก่อนส่งงาน!
+			</div>
+
+			<p>ก๊อปปี้คำสั่งด้านล่างไปวางใน Terminal ของ VS Code:</p>
+			
+			<div style="background: #2d2d2d; color: #f8f8f2; padding: 20px; border-radius: 10px; text-align: left; font-family: monospace; font-size: 1.1em;">
+				<span style="color: #a6e22e;">terraform fmt</span> <span style="color: #75715e;"># จัดระเบียบโค้ดให้สวย</span><br>
+				<span style="color: #a6e22e;">git add .</span><br>
+				<span style="color: #a6e22e;">git commit -m "Update infrastructure"</span><br>
+				<span style="color: #a6e22e;">git push</span>
+			</div>
+
 			<br><br>
-			<a href="/" style="padding: 10px 20px; background: #333; color: white; text-decoration: none; border-radius: 5px;">กลับหน้าแรก</a>
+			<a href="/" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">⬅️ กลับหน้าแรก</a>
 		</div>
 	`)
 	
-	fmt.Printf("Generated Terraform for: %s (%s)\n", data.ServerName, data.InstanceType)
+	fmt.Printf("Generated Terraform for: %s\n", data.ServerName)
 }
