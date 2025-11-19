@@ -1,15 +1,19 @@
-name: "Destroy Infrastructure"
+name: "💣 Destroy Infrastructure (Clean All)"
 
-# ทำงานเมื่อ "เรากดปุ่ม" เท่านั้น (ไม่ทำงานตอน Push)
 on:
-  workflow_dispatch:
+  workflow_dispatch: # ทำงานเมื่อกดปุ่มเท่านั้น
 
 jobs:
   destroy:
-    name: "Destroy Terraform"
+    name: "Destroy Everything"
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read
+      pull-requests: write
+
     env:
+      # ต้องมี Key เพื่อเข้าไปอ่าน State ใน S3 ว่ามีอะไรต้องลบบ้าง
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: "ap-southeast-1"
@@ -23,9 +27,10 @@ jobs:
         with:
           terraform_version: 1.5.0
 
+      # 1. สำคัญมาก: ต้อง Init เพื่อดึงข้อมูลจาก S3 มาก่อน จะได้รู้ว่าต้องลบอะไร
       - name: Terraform Init
         run: terraform init
 
-      # คำสั่งทำลายล้าง!
+      # 2. สั่งทำลายล้าง (Auto Approve)
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
