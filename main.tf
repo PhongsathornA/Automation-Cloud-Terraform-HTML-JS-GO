@@ -27,12 +27,12 @@ resource "aws_subnet" "user_selected_subnet" {
   availability_zone = "ap-southeast-1a"
 
   tags = {
-    Name = "Subnet-For-Test-Nginx"
+    Name = "Subnet-For-Test-Nginx-2"
   }
 }
 
 resource "aws_security_group" "user_custom_sg" {
-  name        = "Test-Nginx"
+  name        = "Nginx-Test-2"
   description = "Security Group managed by Terraform Web Portal"
   vpc_id      = data.aws_vpc.default.id
 
@@ -60,7 +60,7 @@ resource "aws_security_group" "user_custom_sg" {
   }
 
   tags = {
-    Name = "Test-Nginx"
+    Name = "Nginx-Test-2"
   }
 }
 
@@ -72,23 +72,26 @@ resource "aws_instance" "web_server" {
   vpc_security_group_ids      = [aws_security_group.user_custom_sg.id]
   associate_public_ip_address = true
 
-  # 👇👇👇 Logic เลือกติดตั้ง Nginx 👇👇👇
+  # 👇👇👇 ปรับแก้ Script สำหรับ Amazon Linux 👇👇👇
 
   user_data = <<-EOF
               #!/bin/bash
-              sudo apt-get update -y
-              sudo apt-get install -y nginx
-              sudo systemctl start nginx
-              sudo systemctl enable nginx
-              echo "<h1>☁️ Hello from Test-Nginx!</h1><p>Nginx Installed via Automation</p>" > /var/www/html/index.html
+              # ใช้ dnf แทน apt-get (เพราะเป็น Amazon Linux)
+              dnf update -y
+              dnf install -y nginx
+              
+              systemctl start nginx
+              systemctl enable nginx
+              
+              # Amazon Linux เก็บหน้าเว็บไว้ที่ /usr/share/nginx/html
+              echo "<h1>☁️ Hello from Amazon Linux!</h1><p>Server: Test-Nginx-2</p>" > /usr/share/nginx/html/index.html
               EOF
 
   user_data_replace_on_change = true
 
-  # 👆👆👆 ถ้าไม่ได้ติ๊ก Checkbox โค้ดส่วนนี้จะหายไปเลย
 
   tags = {
-    Name    = "Test-Nginx"
+    Name    = "Test-Nginx-2"
     Project = "Cloud-Automation-Web-Generated"
   }
 }
