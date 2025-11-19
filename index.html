@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Terraform Creator</title>
+    
+    <style>
+        /* ... (ส่วน CSS เหมือนเดิม) ... */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 { text-align: center; color: #2c3e50; }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .platform-specific-fields {
+            display: none;
+            border-top: 2px solid #eee;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .buttons { margin-top: 15px; text-align: center; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            margin: 0 10px;
+        }
+        #btn-plan { background-color: #3498db; color: white; }
+        #btn-apply { background-color: #2ecc71; color: white; }
+        #output {
+            margin-top: 20px;
+            background-color: #222;
+            color: #f1f1f1;
+            padding: 15px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Universal Cloud Creator</h1>
+
+        <form id="tf-form">
+            
+            <div class="form-group">
+                <label for="platform">1. เลือก Platform</label>
+                <select id="platform" name="platform">
+                    <option value="">-- กรุณาเลือก --</option>
+                    <option value="aws">Amazon Web Services (AWS)</option>
+                    <option value="azure">Microsoft Azure</option>
+                    <option value="gcp">Google Cloud Platform (GCP)</option>
+                </select>
+            </div>
+
+            <div id="aws-fields" class="platform-specific-fields">
+                <h3>2. AWS Credentials & Settings</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="aws_access_key">AWS Access Key ID</label>
+                        <input type="password" id="aws_access_key" name="aws_access_key">
+                    </div>
+                    <div class="form-group">
+                        <label for="aws_secret_key">AWS Secret Access Key</label>
+                        <input type="password" id="aws_secret_key" name="aws_secret_key">
+                    </div>
+                    <div class="form-group">
+                        <label for="aws_instance_name">Instance Name (ชื่อเครื่อง)</label>
+                        <input type="text" id="aws_instance_name" name="aws_instance_name" value="my-aws-server">
+                    </div>
+                    <div class="form-group">
+                        <label for="aws_region">Region</label>
+                        <select id="aws_region" name="aws_region">
+                            <option value="us-east-1">us-east-1</option>
+                            <option value="ap-southeast-1">ap-southeast-1</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="aws_instance_type">Instance Type</label>
+                        <select id="aws_instance_type" name="aws_instance_type">
+                            <option value="t2.micro">t2.micro</option>
+                            <option value="t3.small">t3.small</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="azure-fields" class="platform-specific-fields">
+                <h3>2. Azure Credentials & Settings</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="azure_client_id">Client ID</label>
+                        <input type="password" id="azure_client_id" name="azure_client_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="azure_client_secret">Client Secret</label>
+                        <input type="password" id="azure_client_secret" name="azure_client_secret">
+                    </div>
+                    <div class="form-group">
+                        <label for="azure_tenant_id">Tenant ID</label>
+                        <input type="text" id="azure_tenant_id" name="azure_tenant_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="azure_subscription_id">Subscription ID</label>
+                        <input type="text" id="azure_subscription_id" name="azure_subscription_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="azure_location">Location</label>
+                        <input type="text" id="azure_location" name="azure_location" value="East US">
+                    </div>
+                    <div class="form-group">
+                        <label for="azure_vm_size">VM Size</label>
+                        <select id="azure_vm_size" name="azure_vm_size">
+                            <option value="Standard_B1s">Standard_B1s</option>
+                            <option value="Standard_DS1_v2">Standard_DS1_v2</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gcp-fields" class="platform-specific-fields">
+                <h3>2. GCP Credentials & Settings</h3>
+                <div class="form-group">
+                    <label for="gcp_key_json">Service Account JSON Key</label>
+                    <textarea id="gcp_key_json" name="gcp_key_json" rows="5" placeholder="วางเนื้อหาไฟล์ JSON key ที่นี่"></textarea>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="gcp_project">Project ID</label>
+                        <input type="text" id="gcp_project" name="gcp_project">
+                    </div>
+                    <div class="form-group">
+                        <label for="gcp_machine_type">Machine Type</label>
+                        <select id="gcp_machine_type" name="gcp_machine_type">
+                            <option value="e2-micro">e2-micro</option>
+                            <option value="e2-small">e2-small</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+        </form>
+        
+        <div class="buttons">
+            <button id="btn-plan">Plan</button>
+            <button id="btn-apply" disabled>Apply</button>
+        </div>
+
+        <h3>Output Log</h3>
+        <pre id="output">... กรุณาเลือก Platform และกรอกข้อมูล ...</pre>
+    </div>
+
+
+    <script src="app.js" defer></script>
+
+</body>
+</html>
