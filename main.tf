@@ -6,27 +6,24 @@ terraform {
     }
   }
 
-  # --- 👇 ส่วนที่เพิ่มมา (ต้องแก้ชื่อ Bucket นะครับ!) 👇 ---
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ตรงนี้ให้เป็นชื่อ Bucket จริงๆ ของคุณ
+    bucket = "terraform-state-phongsathorn-2025"  # <--- ⚠️ แก้ชื่อ Bucket ให้ตรงกับของคุณ!
     key    = "terraform.tfstate"
     region = "ap-southeast-1"
   }
-  # ----------------------------------------------------
 }
 
-# 1. บอกว่าจะใช้ Cloud เจ้าไหน (AWS) และโซนไหน (Singapore)
 provider "aws" {
   region = "ap-southeast-1"
+  # ไม่ต้องใส่ access_key ตรงนี้ (GitHub Actions จะจัดการให้)
 }
 
-# 2. สร้าง EC2 Instance (Server)
-resource "aws_instance" "app_server" {
-  ami           = "ami-0b3eb051c6c7936e9" # Ubuntu 20.04 ใน Singapore (Free Tier)
-  instance_type = "t3.micro"              # รุ่นประหยัด (Free Tier ใช้ได้)
+resource "aws_instance" "web_server" {
+  ami           = "ami-0b3eb051c6c7936e9" # Ubuntu 20.04 (Singapore)
+  instance_type = "t3.micro"
 
   tags = {
-    Name    = "My-Automated-Server"
-    Project = "Cloud-Automation-Project"
+    Name    = "Test-By-Go"
+    Project = "Cloud-Automation-Web-Generated"
   }
 }
