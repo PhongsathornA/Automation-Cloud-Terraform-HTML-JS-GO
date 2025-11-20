@@ -1,15 +1,14 @@
 name: "Terraform Infrastructure CI/CD"
 
 on:
-  # 1. ทำงานอัตโนมัติเมื่อ Push ไฟล์ .tf
   push:
     branches:
       - main
+      - 'feature/**'  # 👈 เพิ่มบรรทัดนี้ครับ (รองรับ Branch ใหม่)
     paths:
-      - '**.tf'
+      - '**.tf'       # รันเฉพาะเมื่อไฟล์ .tf เปลี่ยน
   
-  # 2. 👇 แก้ตรงนี้: ขยับออกมาให้ตรงกับ push (เพื่อเปิดปุ่มกดเอง)
-  workflow_dispatch:
+  workflow_dispatch:  # ปุ่มกดเอง
 
 jobs:
   terraform:
@@ -59,6 +58,5 @@ jobs:
         continue-on-error: true
 
       - name: Terraform Apply
-        # 👇 แก้ตรงนี้: เพิ่มเงื่อนไข "หรือ เป็นการกดปุ่มเอง" (workflow_dispatch)
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/')) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: terraform apply -auto-approve

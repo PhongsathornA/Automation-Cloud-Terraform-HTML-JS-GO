@@ -8,18 +8,13 @@ import (
 	"text/template"
 )
 
-// โครงสร้างข้อมูลรวม (รองรับทั้ง AWS และ Azure)
 type FormData struct {
 	Provider       string
 	ResourceName   string
-	
-	// AWS Fields
 	AWSInstanceType string
 	AWSCapacity     string
 	AWSSgName       string
 	InstallNginx    bool
-	
-	// Azure Fields
 	AzureLocation   string
 	AzureVmSize     string
 	AzureRgName     string
@@ -42,39 +37,31 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// รับค่าจาก Form
 	data := FormData{
 		Provider:        r.FormValue("provider"),
 		ResourceName:    r.FormValue("resourceName"),
-		
-		// AWS Data
 		AWSInstanceType: r.FormValue("awsInstanceType"),
 		AWSCapacity:     r.FormValue("awsCapacity"),
 		AWSSgName:       r.FormValue("awsSgName"),
 		InstallNginx:    r.FormValue("installNginx") == "yes",
-
-		// Azure Data
 		AzureLocation:   r.FormValue("azureLocation"),
 		AzureVmSize:     r.FormValue("azureVmSize"),
 		AzureRgName:     r.FormValue("azureRgName"),
 	}
 
-	// เลือก Template ตามค่าย
 	var tfTemplate string
 	if data.Provider == "aws" {
-		tfTemplate = awsClusterTemplate // ใช้แม่พิมพ์ AWS
+		tfTemplate = awsClusterTemplate
 	} else {
-		tfTemplate = azureVmTemplate    // ใช้แม่พิมพ์ Azure
+		tfTemplate = azureVmTemplate
 	}
 
-	// สร้าง Template
 	tmpl, err := template.New("terraform").Parse(tfTemplate)
 	if err != nil {
 		http.Error(w, "Error parsing template: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// สร้างไฟล์ main.tf
 	file, err := os.Create("main.tf")
 	if err != nil {
 		http.Error(w, "Error creating file: "+err.Error(), http.StatusInternalServerError)
@@ -82,44 +69,42 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// เขียนข้อมูลลงไฟล์
 	err = tmpl.Execute(file, data)
 	if err != nil {
 		http.Error(w, "Error saving file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Success Page
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `
 		<div style="font-family: sans-serif; text-align: center; padding: 50px;">
-			<h1 style="color: #28a745;">✅ Generated %s Config Success!</h1>
-			<p>สร้างไฟล์ <strong>main.tf</strong> เรียบร้อยแล้ว</p>
+			<h1 style="color: #28a745;">✅ DEV MODE: Generated Config Success!</h1>
+			<p>สร้างไฟล์ <strong>main.tf</strong> สำหรับ Branch ทดสอบเรียบร้อย</p>
 			<div style="background: #f1f1f1; padding: 20px; border-radius: 10px; display: inline-block; text-align: left;">
 				<code>
 				terraform fmt<br>
 				git add .<br>
-				git commit -m "Update infrastructure for %s"<br>
+				git commit -m "Update dev infrastructure"<br>
 				git push
 				</code>
 			</div>
 			<br><br>
 			<a href="/">⬅️ Back to Home</a>
 		</div>
-	`, data.Provider, data.Provider)
+	`)
 	
 	fmt.Printf("Generated for %s: %s\n", data.Provider, data.ResourceName)
 }
 
-// --- 1. แม่พิมพ์ AWS (HA Cluster: ALB + ASG) ---
+// --- 1. แม่พิมพ์ AWS (ใช้ dev state) ---
 const awsClusterTemplate = `
 terraform {
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket ให้ถูก
-    key    = "terraform.tfstate"
+    bucket = "terraform-state-phongsathorn-2025" 
+    key    = "dev-terraform.tfstate" # 👈 แยก State file เป็น dev-
     region = "ap-southeast-1"
   }
 }
@@ -127,21 +112,21 @@ terraform {
 provider "aws" { region = "ap-southeast-1" }
 data "aws_vpc" "default" { default = true }
 
-# Network
 resource "aws_subnet" "sub_a" {
   vpc_id = data.aws_vpc.default.id
   cidr_block = "172.31.201.0/24"
   availability_zone = "ap-southeast-1a"
+  map_public_ip_on_launch = true
   tags = { Name = "Subnet-A-{{.ResourceName}}" }
 }
 resource "aws_subnet" "sub_b" {
   vpc_id = data.aws_vpc.default.id
   cidr_block = "172.31.202.0/24"
   availability_zone = "ap-southeast-1b"
+  map_public_ip_on_launch = true
   tags = { Name = "Subnet-B-{{.ResourceName}}" }
 }
 
-# Security Group
 resource "aws_security_group" "alb_sg" {
   name = "{{.AWSSgName}}"
   vpc_id = data.aws_vpc.default.id
@@ -159,19 +144,20 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# Load Balancer
 resource "aws_lb" "app_lb" {
   name = "alb-{{.ResourceName}}"
   load_balancer_type = "application"
   security_groups = [aws_security_group.alb_sg.id]
   subnets = [aws_subnet.sub_a.id, aws_subnet.sub_b.id]
 }
+
 resource "aws_lb_target_group" "app_tg" {
   name = "tg-{{.ResourceName}}"
   port = 80
   protocol = "HTTP"
   vpc_id = data.aws_vpc.default.id
 }
+
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.app_lb.arn
   port = "80"
@@ -182,12 +168,10 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 
-# Launch Template & ASG
 resource "aws_launch_template" "app_lt" {
   name_prefix = "lt-{{.ResourceName}}"
   image_id = "ami-0b3eb051c6c7936e9"
   instance_type = "{{.AWSInstanceType}}"
-  
   network_interfaces {
     associate_public_ip_address = true
     security_groups = [aws_security_group.alb_sg.id]
@@ -200,7 +184,7 @@ resource "aws_launch_template" "app_lt" {
               dnf install -y nginx
               systemctl start nginx
               systemctl enable nginx
-              echo "<h1>Hello from {{.ResourceName}}</h1>" > /usr/share/nginx/html/index.html
+              echo "<h1>Hello from {{.ResourceName}} (DEV MODE)</h1>" > /usr/share/nginx/html/index.html
               EOF
   )
   {{end}}
@@ -223,20 +207,19 @@ output "alb_dns_name" {
 }
 `
 
-// --- 2. แม่พิมพ์ Azure (Basic VM) ---
+// --- 2. แม่พิมพ์ Azure (ใช้ dev state) ---
 const azureVmTemplate = `
 terraform {
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "~> 3.0" }
   }
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket ให้ถูก
-    key    = "azure.tfstate"
+    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket
+    key    = "dev-azure.tfstate" # 👈 แยก State file เป็น dev-
     region = "ap-southeast-1"
   }
 }
 
-# แยกบรรทัดให้แล้ว (เพื่อไม่ให้ terraform fmt error)
 provider "azurerm" {
   features {}
 }
