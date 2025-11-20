@@ -11,10 +11,15 @@ import (
 type FormData struct {
 	Provider       string
 	ResourceName   string
+	
+	// AWS Fields
 	AWSInstanceType string
 	AWSCapacity     string
 	AWSSgName       string
 	InstallNginx    bool
+	InstallDb       bool // 👇 เพิ่มตัวแปรนี้
+	
+	// Azure Fields
 	AzureLocation   string
 	AzureVmSize     string
 	AzureRgName     string
@@ -40,10 +45,13 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	data := FormData{
 		Provider:        r.FormValue("provider"),
 		ResourceName:    r.FormValue("resourceName"),
+		
 		AWSInstanceType: r.FormValue("awsInstanceType"),
 		AWSCapacity:     r.FormValue("awsCapacity"),
 		AWSSgName:       r.FormValue("awsSgName"),
 		InstallNginx:    r.FormValue("installNginx") == "yes",
+		InstallDb:       r.FormValue("installDb") == "yes", // รับค่า Database
+
 		AzureLocation:   r.FormValue("azureLocation"),
 		AzureVmSize:     r.FormValue("azureVmSize"),
 		AzureRgName:     r.FormValue("azureRgName"),
@@ -78,33 +86,34 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `
 		<div style="font-family: sans-serif; text-align: center; padding: 50px;">
-			<h1 style="color: #28a745;">✅ DEV MODE: Generated Config Success!</h1>
-			<p>สร้างไฟล์ <strong>main.tf</strong> สำหรับ Branch ทดสอบเรียบร้อย</p>
+			<h1 style="color: #28a745;">✅ Generated %s Config Success!</h1>
+			<p>สร้างไฟล์ <strong>main.tf</strong> เรียบร้อยแล้ว</p>
+            <p><strong>Features:</strong> Nginx=%t, Database=%t</p>
 			<div style="background: #f1f1f1; padding: 20px; border-radius: 10px; display: inline-block; text-align: left;">
 				<code>
 				terraform fmt<br>
 				git add .<br>
-				git commit -m "Update dev infrastructure"<br>
+				git commit -m "Update infrastructure for %s"<br>
 				git push
 				</code>
 			</div>
 			<br><br>
 			<a href="/">⬅️ Back to Home</a>
 		</div>
-	`)
+	`, data.Provider, data.InstallNginx, data.InstallDb, data.Provider)
 	
-	fmt.Printf("Generated for %s: %s\n", data.Provider, data.ResourceName)
+	fmt.Printf("Generated for %s: %s (DB=%t)\n", data.Provider, data.ResourceName, data.InstallDb)
 }
 
-// --- 1. แม่พิมพ์ AWS (ใช้ dev state) ---
+// --- 1. แม่พิมพ์ AWS (HA Cluster + Database Support) ---
 const awsClusterTemplate = `
 terraform {
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" 
-    key    = "dev-terraform.tfstate" # 👈 แยก State file เป็น dev-
+    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket ให้ถูก
+    key    = "dev-terraform.tfstate" # ใช้ Dev State
     region = "ap-southeast-1"
   }
 }
@@ -112,30 +121,44 @@ terraform {
 provider "aws" { region = "ap-southeast-1" }
 data "aws_vpc" "default" { default = true }
 
+# Network
 resource "aws_subnet" "sub_a" {
   vpc_id = data.aws_vpc.default.id
   cidr_block = "172.31.201.0/24"
   availability_zone = "ap-southeast-1a"
-  map_public_ip_on_launch = true
   tags = { Name = "Subnet-A-{{.ResourceName}}" }
 }
 resource "aws_subnet" "sub_b" {
   vpc_id = data.aws_vpc.default.id
   cidr_block = "172.31.202.0/24"
   availability_zone = "ap-southeast-1b"
-  map_public_ip_on_launch = true
   tags = { Name = "Subnet-B-{{.ResourceName}}" }
 }
 
+# Security Group
 resource "aws_security_group" "alb_sg" {
   name = "{{.AWSSgName}}"
   vpc_id = data.aws_vpc.default.id
+
+  # HTTP
   ingress {
     from_port = 80
     to_port = 80
     protocol = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  {{if .InstallDb}}
+  # MySQL / MariaDB Port (เพิ่มเฉพาะตอนเลือก DB)
+  ingress {
+    description = "Database Port"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # ใน Production ควรระบุ IP
+  }
+  {{end}}
+
   egress {
     from_port = 0
     to_port = 0
@@ -144,20 +167,19 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
+# Load Balancer
 resource "aws_lb" "app_lb" {
   name = "alb-{{.ResourceName}}"
   load_balancer_type = "application"
   security_groups = [aws_security_group.alb_sg.id]
   subnets = [aws_subnet.sub_a.id, aws_subnet.sub_b.id]
 }
-
 resource "aws_lb_target_group" "app_tg" {
   name = "tg-{{.ResourceName}}"
   port = 80
   protocol = "HTTP"
   vpc_id = data.aws_vpc.default.id
 }
-
 resource "aws_lb_listener" "front_end" {
   load_balancer_arn = aws_lb.app_lb.arn
   port = "80"
@@ -168,26 +190,42 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 
+# Launch Template & ASG
 resource "aws_launch_template" "app_lt" {
   name_prefix = "lt-{{.ResourceName}}"
-  image_id = "ami-0b3eb051c6c7936e9"
+  image_id = "ami-0b3eb051c6c7936e9" # Amazon Linux 2023
   instance_type = "{{.AWSInstanceType}}"
+  
   network_interfaces {
     associate_public_ip_address = true
     security_groups = [aws_security_group.alb_sg.id]
   }
 
-  {{if .InstallNginx}}
   user_data = base64encode(<<-EOF
               #!/bin/bash
               dnf update -y
+              
+              {{if .InstallNginx}}
+              # Install Nginx
               dnf install -y nginx
               systemctl start nginx
               systemctl enable nginx
-              echo "<h1>Hello from {{.ResourceName}} (DEV MODE)</h1>" > /usr/share/nginx/html/index.html
+              echo "<h1>Hello from {{.ResourceName}}</h1>" > /usr/share/nginx/html/index.html
+              {{end}}
+
+              {{if .InstallDb}}
+              # Install MariaDB (MySQL)
+              dnf install -y mariadb105-server
+              systemctl start mariadb
+              systemctl enable mariadb
+              
+              # สร้าง Database ทดสอบ (User: admin / Pass: Pass1234!)
+              mysql -e "CREATE DATABASE my_app_db;"
+              mysql -e "CREATE USER 'admin'@'%' IDENTIFIED BY 'Pass1234!';"
+              mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';"
+              {{end}}
               EOF
   )
-  {{end}}
 }
 
 resource "aws_autoscaling_group" "app_asg" {
@@ -207,15 +245,15 @@ output "alb_dns_name" {
 }
 `
 
-// --- 2. แม่พิมพ์ Azure (ใช้ dev state) ---
+// --- 2. แม่พิมพ์ Azure (เหมือนเดิม) ---
 const azureVmTemplate = `
 terraform {
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "~> 3.0" }
   }
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" 
-    key    = "dev-azure.tfstate" # 👈 แยก State file เป็น dev-
+    bucket = "terraform-state-phongsathorn-2025"
+    key    = "dev-azure.tfstate"
     region = "ap-southeast-1"
   }
 }
