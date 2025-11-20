@@ -214,7 +214,7 @@ terraform {
     azurerm = { source = "hashicorp/azurerm", version = "~> 3.0" }
   }
   backend "s3" {
-    bucket = "terraform-state-phongsathorn-2025" # <--- ⚠️ แก้ชื่อ Bucket
+    bucket = "terraform-state-phongsathorn-2025" 
     key    = "dev-azure.tfstate" # 👈 แยก State file เป็น dev-
     region = "ap-southeast-1"
   }
