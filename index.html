@@ -42,7 +42,7 @@
         .azure-btn { background: linear-gradient(135deg, #0078D4, #005a9e); }
 
         /* Checkbox */
-        .checkbox-wrapper { display: flex; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .checkbox-wrapper { display: flex; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 10px; }
         .checkbox-wrapper input { width: 20px; height: 20px; margin-right: 12px; cursor: pointer; }
         .checkbox-wrapper label { margin: 0; cursor: pointer; color: #2c3e50; }
 
@@ -57,7 +57,6 @@
         
         <form action="/generate" method="POST">
             
-            <!-- Provider Selector -->
             <input type="hidden" name="provider" id="selectedProvider" value="aws">
             <div class="provider-selector">
                 <div class="provider-option active" data-value="aws" onclick="selectProvider('aws')">
@@ -68,16 +67,14 @@
                 </div>
             </div>
 
-            <!-- Shared Field: Name -->
             <div class="form-group">
                 <label id="nameLabel">1. Cluster Name (ชื่อระบบ):</label>
                 <input type="text" name="resourceName" placeholder="e.g. My-Web-Cluster" required>
             </div>
 
-            <!-- ================= AWS SECTION (FULL OPTION) ================= -->
             <div id="aws-fields">
                 <div class="arch-badge aws-badge">
-                    🚀 Architecture: ALB + Auto Scaling Group (High Availability)
+                    🚀 Architecture: ALB + Auto Scaling Group (HA)
                 </div>
 
                 <div class="form-group">
@@ -106,12 +103,15 @@
                 <div class="form-group">
                     <div class="checkbox-wrapper">
                         <input type="checkbox" id="installNginx" name="installNginx" value="yes" checked>
-                        <label for="installNginx">🛠️ Install Nginx & Create HTML Page</label>
+                        <label for="installNginx">🌐 Install Nginx Web Server</label>
+                    </div>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="installDb" name="installDb" value="yes">
+                        <label for="installDb">🗄️ Install MariaDB (MySQL) Database</label>
                     </div>
                 </div>
             </div>
 
-            <!-- ================= AZURE SECTION (BASIC) ================= -->
             <div id="azure-fields" class="hidden">
                 <div class="arch-badge azure-badge">
                     🟦 Architecture: Single Virtual Machine (Basic)
@@ -145,12 +145,11 @@
 
     <script>
         function selectProvider(provider) {
-            // Update UI
+            // (Script เดิม ไม่ต้องแก้)
             document.querySelectorAll('.provider-option').forEach(el => el.classList.remove('active'));
             document.querySelector(`.provider-option[data-value="${provider}"]`).classList.add('active');
             document.getElementById('selectedProvider').value = provider;
 
-            // Toggle Sections
             const awsFields = document.getElementById('aws-fields');
             const azureFields = document.getElementById('azure-fields');
             const btn = document.getElementById('submitBtn');
