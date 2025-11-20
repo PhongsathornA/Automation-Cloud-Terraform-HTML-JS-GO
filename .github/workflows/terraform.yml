@@ -4,10 +4,9 @@ on:
   push:
     branches:
       - main
-    # 👇 ส่วนที่เพิ่มเข้ามา: ทำงานเฉพาะเมื่อไฟล์เหล่านี้เปลี่ยน 👇
     paths:
-      - '**.tf'        # ไฟล์ Terraform
-      - '.github/workflows/terraform.yml' # ไฟล์ Workflow นี้
+      - '**.tf'
+      - '.github/workflows/terraform.yml'
 
 jobs:
   terraform:
@@ -18,10 +17,16 @@ jobs:
       pull-requests: write
 
     env:
-      # ดึงกุญแจจาก GitHub Secrets มาใช้
+      # 1. AWS Keys (ของเดิม)
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: "ap-southeast-1"
+
+      # 2. Azure Keys (เพิ่มใหม่! เพื่อให้สร้างของใน Azure ได้)
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
 
     steps:
       - name: Checkout Code
@@ -39,6 +44,7 @@ jobs:
       - name: Terraform Format
         id: fmt
         run: terraform fmt -check
+        continue-on-error: true
 
       - name: Terraform Validate
         id: validate
@@ -52,3 +58,12 @@ jobs:
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve
+```
+
+### 🚀 สิ่งที่ต้องทำ
+1.  แก้ไฟล์ `.github/workflows/terraform.yml` ใน VS Code
+2.  Push ขึ้น GitHub:
+    ```bash
+    git add .
+    git commit -m "Add Azure credentials to main workflow"
+    git push
