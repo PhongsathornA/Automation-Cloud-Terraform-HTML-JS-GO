@@ -33,6 +33,13 @@ This project implements a **GitOps** workflow. Infrastructure changes are deploy
    Edit Terraform files (e.g., `main.tf`) to adjust your infrastructure requirements.
 3. **Push Changes:**
    Commit and push your changes to the `main` branch to trigger the pipeline:
+
+
+
+## Idea
+- Terraform + Ansible
+- Terraform create Cloud (Vm,ip,network,etc)
+- Ansible Config os 
    
    ```bash
    terraform fmt
